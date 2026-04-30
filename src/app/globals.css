@@ -1,0 +1,85 @@
+@import "tailwindcss";
+
+html, body {
+  overflow: hidden;
+  height: 100dvh;
+  overscroll-behavior: none;
+}
+
+@theme {
+  /* Fonts — CSS vars injected by next/font in layout.tsx */
+  --font-family-baloo: var(--font-baloo), "Baloo 2", sans-serif;
+  --font-family-nunito: var(--font-nunito), "Nunito", sans-serif;
+
+  /* Game palette */
+  --color-game-bg: #0f1923;
+  --color-game-surface: #1a2635;
+  --color-game-card: #21303f;
+  --color-game-blue: #58a6ff;
+  --color-game-green: #3fb950;
+  --color-game-red: #ff7b72;
+  --color-game-yellow: #e3b341;
+  --color-game-purple: #bc8cff;
+  --color-game-orange: #ffa657;
+  --color-game-muted: #8b949e;
+  --color-game-text: #e6edf3;
+}
+
+@keyframes float {
+  0%,
+  100% {
+    transform: translateY(0px) rotate(0deg);
+  }
+  33% {
+    transform: translateY(-18px) rotate(4deg);
+  }
+  66% {
+    transform: translateY(10px) rotate(-3deg);
+  }
+}
+
+@keyframes pulse-ring {
+  0% {
+    box-shadow: 0 0 0 0 rgba(255, 123, 114, 0.5);
+  }
+  70% {
+    box-shadow: 0 0 0 10px rgba(255, 123, 114, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(255, 123, 114, 0);
+  }
+}
+
+.animate-float {
+  animation: float ease-in-out infinite;
+}
+
+.animate-pulse-ring {
+  animation: pulse-ring 1s ease-out infinite;
+}
+
+::-webkit-scrollbar {
+  width: 5px;
+}
+::-webkit-scrollbar-track {
+  background: #0f1923;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.28);
+}
+
+::selection {
+  background: #58a6ff;
+  color: white;
+}
+
+body {
+  background-color: #0f1923;
+  color: #e6edf3;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
