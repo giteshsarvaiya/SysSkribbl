@@ -6,6 +6,7 @@ import { useStorage, useMutation, useSelf, useOthers } from "@/liveblocks.config
 import Avatar from "@/components/ui/Avatar";
 import GuessStream from "./GuessStream";
 import type { PlayerTokenPayload } from "@/lib/types";
+import { startSelectionMusic, stopSelectionMusic } from "@/lib/sounds";
 
 const PICK_SECONDS = 15;
 
@@ -21,6 +22,12 @@ export default function WordSelection({
   const others    = useOthers();
 
   const isDrawer = gameState.currentDrawerId === playerInfo.playerId;
+
+  // Play ambient music while someone is choosing; stop on phase transition
+  useEffect(() => {
+    startSelectionMusic();
+    return () => stopSelectionMusic();
+  }, []);
 
   // Find drawer info for non-drawer view
   const drawerInfo = (() => {

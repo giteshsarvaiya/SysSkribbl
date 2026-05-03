@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifyPlayerToken } from "@/lib/jwt";
 import { getLiveblocks } from "@/lib/liveblocks-server";
 import { getPromptForRound, isCorrectGuess } from "@/lib/prompts";
+import { calcGuesserPoints } from "@/lib/scoring";
 import type { Category, Difficulty, GameStateData } from "@/lib/types";
 
 export async function POST(request: NextRequest) {
@@ -65,9 +66,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ correct: false, points: 0 });
   }
 
-  // Calculate points: 100 at round start, decays to 10
   const elapsed = Date.now() - gsData.timerStartedAt;
-  const points  = Math.max(10, Math.round(100 * (1 - elapsed / gsData.roundDurationMs)));
+  const points  = calcGuesserPoints(elapsed, gsData.roundDurationMs);
 
   return NextResponse.json({ correct: true, points, prompt });
 }

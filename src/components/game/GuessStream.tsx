@@ -21,6 +21,25 @@ interface GuessStreamProps {
   onCorrect:     (points: number) => void;
 }
 
+function replaceLastGuessWithCorrect(
+  prev: Message[],
+  playerName: string,
+  correctMsg: Message
+): Message[] {
+  // Find the most recent "guess" message from this player and remove it
+  let removeIdx = -1;
+  for (let i = prev.length - 1; i >= 0; i--) {
+    if (prev[i].type === "guess" && prev[i].playerName === playerName) {
+      removeIdx = i;
+      break;
+    }
+  }
+  const updated = removeIdx !== -1
+    ? [...prev.slice(0, removeIdx), ...prev.slice(removeIdx + 1)]
+    : [...prev];
+  return [...updated.slice(-99), correctMsg];
+}
+
 export default function GuessStream({
   playerInfo,
   isDrawer,
@@ -39,7 +58,7 @@ export default function GuessStream({
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Listen to incoming guess broadcasts
+  // Listen to incoming broadcasts (fires for everyone EXCEPT the sender)
   useEventListener(({ event }) => {
     if (event.type === "GUESS") {
       setMessages((prev) => [
@@ -53,25 +72,27 @@ export default function GuessStream({
         },
       ]);
     }
+
     if (event.type === "CORRECT_GUESS_ANIMATION") {
       playCorrect();
-      setMessages((prev) => [
-        ...prev.slice(-99),
-        {
-          id:          crypto.randomUUID(),
-          playerName:  event.playerName,
-          playerColor: "#3fb950",
-          text:        `${event.playerName} guessed it! (+${event.points} pts)`,
-          type:        "correct",
-        },
-      ]);
+      const correctMsg: Message = {
+        id:          crypto.randomUUID(),
+        playerName:  event.playerName,
+        playerColor: "#3fb950",
+        text:        `${event.playerName} guessed it! (+${event.points} pts)`,
+        type:        "correct",
+      };
+      setMessages((prev) => replaceLastGuessWithCorrect(prev, event.playerName, correctMsg));
     }
+
     if (event.type === "HINT_UNLOCK") {
       playHint();
     }
+
     if (event.type === "WRONG_GUESS") {
       playWrong();
     }
+
     if (event.type === "ROUND_ENDING_SOON") {
       setMessages((prev) => [
         ...prev.slice(-99),
@@ -90,7 +111,6 @@ export default function GuessStream({
     const text = input.trim();
     if (!text || sending || isDrawer || !prompt) return;
 
-    // 2-second rate limit
     const now = Date.now();
     if (now - lastSentAt.current < 2000) return;
     lastSentAt.current = now;
@@ -98,7 +118,19 @@ export default function GuessStream({
     setInput("");
     setSending(true);
 
-    // Broadcast guess to all players immediately (ephemeral)
+    // Add own message immediately (broadcasts don't echo back to sender)
+    const localId = crypto.randomUUID();
+    setMessages((prev) => [
+      ...prev.slice(-99),
+      {
+        id:          localId,
+        playerName:  playerInfo.playerName,
+        playerColor: playerInfo.color,
+        text,
+        type:        "guess",
+      },
+    ]);
+
     broadcast({
       type:        "GUESS",
       playerName:  playerInfo.playerName,
@@ -114,15 +146,22 @@ export default function GuessStream({
           "Content-Type":  "application/json",
           Authorization:   `Bearer ${token}`,
         },
-        body: JSON.stringify({
-          guess:            text,
-          currentDrawerId:  playerInfo.playerId, // server re-reads from storage
-        }),
+        body: JSON.stringify({ guess: text }),
       });
 
       if (res.ok) {
         const { correct, points } = await res.json();
         if (correct) {
+          // Replace our local guess message with "guessed it" (others do this via CORRECT_GUESS_ANIMATION)
+          playCorrect();
+          const correctMsg: Message = {
+            id:          crypto.randomUUID(),
+            playerName:  playerInfo.playerName,
+            playerColor: "#3fb950",
+            text:        `You guessed it! (+${points} pts)`,
+            type:        "correct",
+          };
+          setMessages((prev) => replaceLastGuessWithCorrect(prev, playerInfo.playerName, correctMsg));
           onCorrect(points);
         }
       }
@@ -165,13 +204,11 @@ export default function GuessStream({
                   <span
                     className="font-nunito text-xs break-words"
                     style={{
-                      color: msg.type === "correct" ? "#3fb950" : "#e6edf3",
+                      color:      msg.type === "correct" ? "#3fb950" : "#e6edf3",
                       fontWeight: msg.type === "correct" ? 700 : 400,
                     }}
                   >
-                    {msg.type === "correct"
-                      ? "🎉 guessed it!"
-                      : msg.text}
+                    {msg.type === "correct" ? msg.text : msg.text}
                   </span>
                 </>
               )}

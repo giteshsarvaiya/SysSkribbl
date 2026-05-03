@@ -1,5 +1,7 @@
 let _ctx: AudioContext | null = null;
 let _muted = false;
+let _selectionGain: GainNode | null = null;
+let _selectionOscs: OscillatorNode[] = [];
 
 function ctx(): AudioContext | null {
   if (_muted) return null;
@@ -14,7 +16,10 @@ function ctx(): AudioContext | null {
 }
 
 export function isMuted() { return _muted; }
-export function setMuted(v: boolean) { _muted = v; }
+export function setMuted(v: boolean) {
+  _muted = v;
+  if (v) stopSelectionMusic();
+}
 
 function tone(
   freq: number,
@@ -64,4 +69,42 @@ export function playGameEnd() {
   [523, 659, 784, 1047, 784, 1047, 1319].forEach((f, i) =>
     tone(f, i * 0.13, 0.5, 0.2)
   );
+}
+
+export function startSelectionMusic() {
+  if (_selectionGain) return; // already playing
+  const c = ctx();
+  if (!c) return;
+
+  const gain = c.createGain();
+  gain.gain.setValueAtTime(0, c.currentTime);
+  gain.gain.linearRampToValueAtTime(0.06, c.currentTime + 1.2);
+  gain.connect(c.destination);
+  _selectionGain = gain;
+
+  // Soft ambient pad: three detuned sines (root A2 + fifth + octave)
+  [110, 165, 220].forEach((freq, i) => {
+    const osc = c.createOscillator();
+    osc.type = "sine";
+    osc.frequency.value = freq + i * 0.4; // tiny detune per voice
+    osc.connect(gain);
+    osc.start();
+    _selectionOscs.push(osc);
+  });
+}
+
+export function stopSelectionMusic() {
+  if (!_selectionGain) return;
+  const gain = _selectionGain;
+  _selectionGain = null;
+  const oscs = _selectionOscs.splice(0);
+
+  const c = _ctx;
+  if (c) {
+    gain.gain.setValueAtTime(gain.gain.value, c.currentTime);
+    gain.gain.linearRampToValueAtTime(0, c.currentTime + 0.6);
+    setTimeout(() => oscs.forEach((o) => { try { o.stop(); } catch { /* already stopped */ } }), 700);
+  } else {
+    oscs.forEach((o) => { try { o.stop(); } catch { /* already stopped */ } });
+  }
 }

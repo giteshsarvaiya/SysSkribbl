@@ -7,9 +7,12 @@ import {
   useBroadcastEvent,
   useCanUndo,
   useUndo,
+  useOthers,
+  useSelf,
 } from "@/liveblocks.config";
 import type { PlayerTokenPayload } from "@/lib/types";
 import { isMuted, setMuted } from "@/lib/sounds";
+import { DRAWER_BONUS } from "@/lib/scoring";
 import Canvas from "./Canvas";
 import DrawingTools from "./DrawingTools";
 import type { Tool } from "./DrawingTools";
@@ -24,13 +27,13 @@ interface GameRoomProps {
   playerInfo: PlayerTokenPayload;
 }
 
-type MobileTab = "chat" | "players";
-
-export default function GameRoom({ roomId, playerInfo }: GameRoomProps) {
+export default function GameRoom({ roomId: _roomId, playerInfo }: GameRoomProps) {
   const gameState = useStorage((root) => root.gameState);
   const broadcast = useBroadcastEvent();
   const canUndo   = useCanUndo();
   const undo      = useUndo();
+  const others    = useOthers();
+  const self      = useSelf();
 
   const isDrawer = gameState.currentDrawerId === playerInfo.playerId;
   const isHost   = playerInfo.role === "host";
@@ -38,21 +41,12 @@ export default function GameRoom({ roomId, playerInfo }: GameRoomProps) {
   const [tool,        setTool]        = useState<Tool>("freehand");
   const [color,       setColor]       = useState("#000000");
   const [strokeWidth, setStrokeWidth] = useState(5);
-  const [mobileTab,   setMobileTab]   = useState<MobileTab>("chat");
   const [muted,       setMutedState]  = useState(false);
-  // Single GuessStream: render in sidebar on desktop, bottom panel on mobile
-  const [isDesktop, setIsDesktop] = useState(true);
-  useEffect(() => {
-    const mq = window.matchMedia("(min-width: 768px)");
-    setIsDesktop(mq.matches);
-    const handler = (e: MediaQueryListEvent) => setIsDesktop(e.matches);
-    mq.addEventListener("change", handler);
-    return () => mq.removeEventListener("change", handler);
-  }, []);
 
   const [prompt, setPrompt]   = useState<string | null>(null);
   const fetchedRound           = useRef(-1);
   const advancingRef           = useRef(false);
+  const drawerLeftRef          = useRef(false);
 
   const toggleMute = () => {
     const next = !muted;
@@ -80,7 +74,7 @@ export default function GameRoom({ roomId, playerInfo }: GameRoomProps) {
       .then((r) => r.json())
       .then((data) => { if (data.prompt) setPrompt(data.prompt); })
       .catch(() => {});
-  }, [gameState.phase, gameState.currentRound, gameState.category, gameState.difficulty]);
+  }, [gameState.phase, gameState.currentRound, gameState.category, gameState.difficulty, gameState.selectedPromptVariant]);
 
   // ── End round: reveal prompt → roundEnd phase ──────────────────────────────
   const endRound = useMutation(({ storage }, revealedPrompt: string) => {
@@ -90,6 +84,24 @@ export default function GameRoom({ roomId, playerInfo }: GameRoomProps) {
     gs.set("revealedPrompt", revealedPrompt);
     gs.set("roundEndAt",     Date.now());
   }, []);
+
+  // ── Detect drawer disconnect ────────────────────────────────────────────────
+  useEffect(() => {
+    if (gameState.phase !== "drawing" || !isHost || !prompt) return;
+    const drawerId = gameState.currentDrawerId;
+    // Drawer is the host themselves — can't detect own disconnect
+    if (drawerId === self?.id) return;
+    const drawerPresent = others.some((o) => o.id === drawerId);
+    if (!drawerPresent && !drawerLeftRef.current) {
+      drawerLeftRef.current = true;
+      endRound(prompt);
+    }
+  }, [others, gameState.phase, gameState.currentDrawerId, isHost, prompt, self, endRound]);
+
+  // Reset drawerLeftRef when a new round begins
+  useEffect(() => {
+    drawerLeftRef.current = false;
+  }, [gameState.currentRound]);
 
   // ── Score correct guess ────────────────────────────────────────────────────
   const recordCorrectGuess = useMutation(
@@ -103,7 +115,7 @@ export default function GameRoom({ roomId, playerInfo }: GameRoomProps) {
       const scores: Record<string, number> = { ...(gs.get("scores") as Record<string, number>) };
       scores[guesserPlayerId] = (scores[guesserPlayerId] ?? 0) + points;
       const drawerId = gs.get("currentDrawerId") as string;
-      scores[drawerId] = (scores[drawerId] ?? 0) + 15;
+      scores[drawerId] = (scores[drawerId] ?? 0) + DRAWER_BONUS;
       gs.set("scores", scores);
     },
     []
@@ -141,7 +153,7 @@ export default function GameRoom({ roomId, playerInfo }: GameRoomProps) {
         broadcast({ type: "HINT_UNLOCK", hintIndex });
       }
     },
-    [isHost, prompt, gameState.currentRound, gameState.category, gameState.difficulty, unlockHint, broadcast]
+    [isHost, prompt, gameState.currentRound, gameState.category, gameState.difficulty, gameState.selectedPromptVariant, unlockHint, broadcast]
   );
 
   const handleTimerExpire = useCallback(() => {
@@ -181,7 +193,7 @@ export default function GameRoom({ roomId, playerInfo }: GameRoomProps) {
             SysSkribbl
           </h1>
 
-          {/* Round + timer — right side on mobile, pushed right on desktop */}
+          {/* Round + timer — right side on mobile */}
           <div className="flex items-center gap-2 md:hidden">
             <div className="text-right">
               <p className="font-nunito text-[9px] text-game-muted uppercase tracking-widest">
@@ -286,68 +298,52 @@ export default function GameRoom({ roomId, playerInfo }: GameRoomProps) {
               </div>
             </div>
           )}
-
-          {/* MOBILE: tab bar */}
-          <div
-            className="md:hidden shrink-0 flex"
-            style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}
-          >
-            {(["chat", "players"] as MobileTab[]).map((tab) => (
-              <button
-                key={tab}
-                onClick={() => setMobileTab(tab)}
-                className="flex-1 py-2.5 font-nunito font-semibold text-xs transition-colors cursor-pointer"
-                style={{
-                  color: mobileTab === tab ? "#58a6ff" : "#8b949e",
-                  backgroundColor: mobileTab === tab ? "rgba(88,166,255,0.08)" : "transparent",
-                  borderBottom: mobileTab === tab ? "2px solid #58a6ff" : "2px solid transparent",
-                }}
-              >
-                {tab === "chat" ? "💬 Chat" : "👥 Players"}
-              </button>
-            ))}
-          </div>
         </main>
 
-        {/* DESKTOP ONLY: right guess stream — single instance, no double listeners */}
-        {isDesktop && (
-          <aside
-            className="flex flex-col w-64 shrink-0"
-            style={{ borderLeft: "1px solid rgba(255,255,255,0.07)" }}
-          >
-            <GuessStream
-              playerInfo={playerInfo}
-              isDrawer={isDrawer}
-              prompt={prompt}
-              onCorrect={handleCorrect}
-            />
-          </aside>
-        )}
+        {/* DESKTOP ONLY: right guess stream */}
+        <aside
+          className="hidden md:flex flex-col w-64 shrink-0"
+          style={{ borderLeft: "1px solid rgba(255,255,255,0.07)" }}
+        >
+          <GuessStream
+            playerInfo={playerInfo}
+            isDrawer={isDrawer}
+            prompt={prompt}
+            onCorrect={handleCorrect}
+          />
+        </aside>
       </div>
 
-      {/* MOBILE ONLY: bottom panel — single instance, no double listeners */}
-      {!isDesktop && (
+      {/* MOBILE ONLY: bottom panel — players + chat side by side */}
+      <div
+        className="md:hidden shrink-0 flex overflow-hidden"
+        style={{
+          height: 220,
+          borderTop: "1px solid rgba(255,255,255,0.07)",
+          backgroundColor: "#0f1923",
+        }}
+      >
+        {/* Players column */}
         <div
-          className="shrink-0 overflow-hidden"
-          style={{
-            height: 208,
-            borderTop: "1px solid rgba(255,255,255,0.07)",
-            backgroundColor: "#0f1923",
-          }}
+          className="w-32 shrink-0 overflow-y-auto p-2"
+          style={{ borderRight: "1px solid rgba(255,255,255,0.07)" }}
         >
-          <div className={mobileTab === "chat" ? "h-full" : "hidden"}>
-            <GuessStream
-              playerInfo={playerInfo}
-              isDrawer={isDrawer}
-              prompt={prompt}
-              onCorrect={handleCorrect}
-            />
-          </div>
-          <div className={`${mobileTab === "players" ? "block" : "hidden"} h-full overflow-y-auto p-2`}>
-            <PlayerList playerInfo={playerInfo} />
-          </div>
+          <p className="font-nunito text-[9px] text-game-muted uppercase tracking-widest mb-1.5 px-1">
+            Players
+          </p>
+          <PlayerList playerInfo={playerInfo} />
         </div>
-      )}
+
+        {/* Chat column */}
+        <div className="flex-1 overflow-hidden min-h-0 flex flex-col">
+          <GuessStream
+            playerInfo={playerInfo}
+            isDrawer={isDrawer}
+            prompt={prompt}
+            onCorrect={handleCorrect}
+          />
+        </div>
+      </div>
     </div>
   );
 }
