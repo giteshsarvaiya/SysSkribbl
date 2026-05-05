@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- Background -->
+  <rect width="64" height="64" rx="14" fill="#0f1923"/>
+
+  <!-- Left node -->
+  <rect x="6" y="22" width="16" height="11" rx="2.5" fill="none" stroke="#58a6ff" stroke-width="2.2"/>
+
+  <!-- Right node -->
+  <rect x="42" y="22" width="16" height="11" rx="2.5" fill="none" stroke="#58a6ff" stroke-width="2.2"/>
+
+  <!-- Connector line -->
+  <line x1="22" y1="27.5" x2="42" y2="27.5" stroke="#58a6ff" stroke-width="2.2" stroke-dasharray="3 2"/>
+
+  <!-- Pencil body -->
+  <rect x="26" y="36" width="8" height="18" rx="1.5" fill="#e3b341" transform="rotate(-38 30 45)"/>
+  <!-- Pencil tip -->
+  <polygon points="30,56 26.5,62 33.5,62" fill="#e6edf3" transform="rotate(-38 30 59)"/>
+  <!-- Pencil top eraser band -->
+  <rect x="26" y="36" width="8" height="3" rx="1" fill="#ffa657" transform="rotate(-38 30 37.5)"/>
+</svg>
