@@ -22,6 +22,30 @@ export default function RoundEnd({
   const [countdown, setCountdown] = useState(ROUND_END_DURATION);
   const advancedRef = useRef(false);
 
+  const [refData, setRefData] = useState<{
+    referenceComponents: string[];
+    designNote: string;
+  } | null>(null);
+
+  useEffect(() => {
+    const token   = localStorage.getItem("playerToken");
+    const variant = gameState.selectedPromptVariant ?? 0;
+    fetch(
+      `/api/prompt?round=${gameState.currentRound}` +
+      `&category=${gameState.category}&difficulty=${gameState.difficulty}` +
+      `&variant=${variant}`,
+      { headers: { Authorization: `Bearer ${token}` } }
+    )
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.referenceComponents) {
+          setRefData({ referenceComponents: d.referenceComponents, designNote: d.designNote });
+        }
+      })
+      .catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Play sound once on mount
   useEffect(() => { playRoundEnd(); }, []);
 
@@ -232,6 +256,47 @@ export default function RoundEnd({
           </div>
         </motion.div>
       </div>
+
+      {/* Reference architecture */}
+      {refData && (
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.4 }}
+          className="w-full max-w-2xl rounded-2xl p-5"
+          style={{ backgroundColor: "#1a2635", border: "1px solid rgba(88,166,255,0.2)" }}
+        >
+          <p className="font-nunito text-[10px] text-game-muted uppercase tracking-widest mb-3">
+            Reference Architecture
+          </p>
+
+          <div className="flex flex-wrap items-center gap-2 mb-4">
+            {refData.referenceComponents.map((comp, i) => (
+              <span key={i} className="flex items-center gap-2">
+                <span
+                  className="px-2.5 py-1 rounded-lg font-nunito font-semibold text-xs"
+                  style={{ backgroundColor: "rgba(88,166,255,0.12)", color: "#58a6ff", border: "1px solid rgba(88,166,255,0.25)" }}
+                >
+                  {comp}
+                </span>
+                {i < refData.referenceComponents.length - 1 && (
+                  <span className="text-game-muted text-xs">→</span>
+                )}
+              </span>
+            ))}
+          </div>
+
+          <div
+            className="flex items-start gap-2 px-3 py-2.5 rounded-lg"
+            style={{ backgroundColor: "rgba(227,179,65,0.08)", border: "1px solid rgba(227,179,65,0.2)" }}
+          >
+            <span className="text-sm shrink-0 mt-0.5">💡</span>
+            <p className="font-nunito text-sm leading-relaxed" style={{ color: "#e3b341" }}>
+              {refData.designNote}
+            </p>
+          </div>
+        </motion.div>
+      )}
 
       {/* Countdown */}
       <motion.div

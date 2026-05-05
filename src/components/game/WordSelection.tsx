@@ -40,7 +40,8 @@ export default function WordSelection({
       : null;
   })();
 
-  const [options,   setOptions]   = useState<[string, string, string] | null>(null);
+  type PromptOption = { system: string; scenario: string };
+  const [options,   setOptions]   = useState<[PromptOption, PromptOption, PromptOption] | null>(null);
   const [countdown, setCountdown] = useState(PICK_SECONDS);
   const [picking,   setPicking]   = useState(false);
   const autoPickRef = useRef(false);
@@ -55,7 +56,7 @@ export default function WordSelection({
       { headers: { Authorization: `Bearer ${token}` } }
     )
       .then((r) => r.json())
-      .then((d) => { if (d.options) setOptions(d.options as [string, string, string]); })
+      .then((d) => { if (d.options) setOptions(d.options); })
       .catch(() => {});
   }, [isDrawer, gameState.currentRound, gameState.category, gameState.difficulty]);
 
@@ -121,10 +122,10 @@ export default function WordSelection({
           </p>
         </motion.div>
 
-        {/* Word options */}
-        <div className="flex flex-col md:flex-row gap-3 w-full max-w-xl">
+        {/* Scenario options */}
+        <div className="flex flex-col gap-3 w-full max-w-2xl">
           {options
-            ? options.map((word, i) => (
+            ? options.map((opt, i) => (
                 <motion.button
                   key={i}
                   initial={{ opacity: 0, y: 16 }}
@@ -132,29 +133,29 @@ export default function WordSelection({
                   transition={{ delay: i * 0.08 }}
                   onClick={() => handlePick(i as 0 | 1 | 2)}
                   disabled={picking}
-                  className="flex-1 py-5 px-4 rounded-2xl font-baloo font-bold text-xl text-white cursor-pointer active:scale-[0.96] transition-all disabled:opacity-50"
+                  className="w-full py-4 px-5 rounded-2xl text-left cursor-pointer active:scale-[0.99] transition-all disabled:opacity-50 flex flex-col gap-1"
                   style={{
                     backgroundColor: "#1a2635",
                     border: "1px solid rgba(255,255,255,0.12)",
                   }}
                   onMouseEnter={(e) => {
                     e.currentTarget.style.borderColor = "#58a6ff";
-                    e.currentTarget.style.backgroundColor = "rgba(88,166,255,0.12)";
+                    e.currentTarget.style.backgroundColor = "rgba(88,166,255,0.08)";
                   }}
                   onMouseLeave={(e) => {
                     e.currentTarget.style.borderColor = "rgba(255,255,255,0.12)";
                     e.currentTarget.style.backgroundColor = "#1a2635";
                   }}
                 >
-                  {word}
+                  <span className="font-baloo font-bold text-lg text-white">{opt.system}</span>
+                  <span className="font-nunito text-sm text-game-muted leading-snug">{opt.scenario}</span>
                 </motion.button>
               ))
-            : // Loading skeleton
-              [0, 1, 2].map((i) => (
+            : [0, 1, 2].map((i) => (
                 <div
                   key={i}
-                  className="flex-1 py-5 px-4 rounded-2xl animate-pulse"
-                  style={{ backgroundColor: "#1a2635", height: 64 }}
+                  className="w-full py-4 px-5 rounded-2xl animate-pulse"
+                  style={{ backgroundColor: "#1a2635", height: 80 }}
                 />
               ))}
         </div>

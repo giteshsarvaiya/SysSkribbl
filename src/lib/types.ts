@@ -2,7 +2,12 @@ export type Phase = "lobby" | "selecting" | "drawing" | "roundEnd" | "gameEnd";
 export type Role = "host" | "drawer" | "guesser" | "spectator";
 export type Difficulty = "easy" | "medium" | "hard";
 export type Category = "classic" | "databases" | "infra" | "famous" | "interview";
-export type StrokeType = "rect" | "circle" | "arrow" | "line" | "freehand" | "text";
+export type StrokeType = "rect" | "circle" | "arrow" | "line" | "freehand" | "text" | "component";
+
+export type ComponentType =
+  | "server" | "database" | "cache" | "queue"
+  | "loadbalancer" | "cdn" | "client" | "storage"
+  | "gateway" | "region";
 
 export type GameSettings = {
   category: Category;
@@ -25,6 +30,7 @@ export type Stroke = {
   strokeWidth: number;
   label?: string;
   drawerId: string;
+  componentType?: ComponentType;
 };
 
 export type PlayerData = {

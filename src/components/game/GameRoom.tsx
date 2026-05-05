@@ -10,7 +10,7 @@ import {
   useOthers,
   useSelf,
 } from "@/liveblocks.config";
-import type { PlayerTokenPayload } from "@/lib/types";
+import type { PlayerTokenPayload, ComponentType } from "@/lib/types";
 import { isMuted, setMuted } from "@/lib/sounds";
 import { DRAWER_BONUS } from "@/lib/scoring";
 import Canvas from "./Canvas";
@@ -38,13 +38,15 @@ export default function GameRoom({ roomId: _roomId, playerInfo }: GameRoomProps)
   const isDrawer = gameState.currentDrawerId === playerInfo.playerId;
   const isHost   = playerInfo.role === "host";
 
-  const [tool,        setTool]        = useState<Tool>("freehand");
-  const [color,       setColor]       = useState("#000000");
-  const [strokeWidth, setStrokeWidth] = useState(5);
-  const [muted,       setMutedState]  = useState(false);
+  const [tool,              setTool]             = useState<Tool>("freehand");
+  const [color,             setColor]            = useState("#000000");
+  const [strokeWidth,       setStrokeWidth]      = useState(5);
+  const [muted,             setMutedState]       = useState(false);
+  const [selectedComponent, setSelectedComponent] = useState<ComponentType | null>(null);
 
-  const [prompt, setPrompt]   = useState<string | null>(null);
-  const fetchedRound           = useRef(-1);
+  const [prompt,   setPrompt]   = useState<string | null>(null);
+  const [scenario, setScenario] = useState<string | null>(null);
+  const fetchedRound             = useRef(-1);
   const advancingRef           = useRef(false);
   const drawerLeftRef          = useRef(false);
 
@@ -52,6 +54,11 @@ export default function GameRoom({ roomId: _roomId, playerInfo }: GameRoomProps)
     const next = !muted;
     setMuted(next);
     setMutedState(next);
+  };
+
+  const handleComponent = (ct: ComponentType) => {
+    setTool("component");
+    setSelectedComponent(ct);
   };
 
   // ── Fetch prompt once per round ────────────────────────────────────────────
@@ -72,7 +79,10 @@ export default function GameRoom({ roomId: _roomId, playerInfo }: GameRoomProps)
       { headers: { Authorization: `Bearer ${token}` } }
     )
       .then((r) => r.json())
-      .then((data) => { if (data.prompt) setPrompt(data.prompt); })
+      .then((data) => {
+        if (data.prompt)   setPrompt(data.prompt);
+        if (data.scenario) setScenario(data.scenario);
+      })
       .catch(() => {});
   }, [gameState.phase, gameState.currentRound, gameState.category, gameState.difficulty, gameState.selectedPromptVariant]);
 
@@ -221,7 +231,7 @@ export default function GameRoom({ roomId: _roomId, playerInfo }: GameRoomProps)
 
         {/* Row 2 on mobile / center on desktop: hint display */}
         <div className="flex-1 flex justify-center px-2">
-          <HintDisplay playerInfo={playerInfo} prompt={prompt} />
+          <HintDisplay playerInfo={playerInfo} prompt={prompt} scenario={scenario} />
         </div>
 
         {/* Desktop-only: round + timer + mute */}
@@ -274,6 +284,7 @@ export default function GameRoom({ roomId: _roomId, playerInfo }: GameRoomProps)
               color={color}
               strokeWidth={strokeWidth}
               drawerId={playerInfo.playerId}
+              selectedComponent={selectedComponent}
             />
           </div>
 
@@ -289,11 +300,13 @@ export default function GameRoom({ roomId: _roomId, playerInfo }: GameRoomProps)
                   color={color}
                   strokeWidth={strokeWidth}
                   canUndo={canUndo}
+                  selectedComponent={selectedComponent}
                   onTool={setTool}
                   onColor={setColor}
                   onStrokeWidth={setStrokeWidth}
                   onUndo={undo}
                   onClear={clearCanvas}
+                  onComponent={handleComponent}
                 />
               </div>
             </div>

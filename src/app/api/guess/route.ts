@@ -55,19 +55,19 @@ export async function POST(request: NextRequest) {
   }
 
   const variant = (gsData.selectedPromptVariant ?? 0) as 0 | 1 | 2;
-  const prompt = getPromptForRound(
+  const promptData = getPromptForRound(
     gsData.category as Category,
     gsData.difficulty as Difficulty,
     gsData.currentRound - 1,
     variant
   );
 
-  if (!isCorrectGuess(guess, prompt)) {
+  if (!isCorrectGuess(guess, promptData.system)) {
     return NextResponse.json({ correct: false, points: 0 });
   }
 
   const elapsed = Date.now() - gsData.timerStartedAt;
   const points  = calcGuesserPoints(elapsed, gsData.roundDurationMs);
 
-  return NextResponse.json({ correct: true, points, prompt });
+  return NextResponse.json({ correct: true, points, prompt: promptData.system });
 }

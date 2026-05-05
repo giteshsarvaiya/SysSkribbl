@@ -1,14 +1,16 @@
 "use client";
 
-export type Tool = "freehand" | "rect" | "circle" | "arrow" | "line" | "text";
+import type { ComponentType } from "@/lib/types";
 
-const TOOLS: { id: Tool; label: string; icon: string }[] = [
-  { id: "freehand", label: "Pen",     icon: "✏️" },
-  { id: "rect",     label: "Rect",    icon: "⬜" },
-  { id: "circle",   label: "Circle",  icon: "⭕" },
-  { id: "arrow",    label: "Arrow",   icon: "➡️" },
-  { id: "line",     label: "Line",    icon: "╱"  },
-  { id: "text",     label: "Text",    icon: "T"  },
+export type Tool = "freehand" | "rect" | "circle" | "arrow" | "line" | "text" | "component";
+
+const TOOLS: { id: Exclude<Tool, "component">; label: string; icon: string }[] = [
+  { id: "freehand", label: "Pen",    icon: "✏️" },
+  { id: "rect",     label: "Rect",   icon: "⬜" },
+  { id: "circle",   label: "Circle", icon: "⭕" },
+  { id: "arrow",    label: "Arrow",  icon: "➡️" },
+  { id: "line",     label: "Line",   icon: "╱"  },
+  { id: "text",     label: "Text",   icon: "T"  },
 ];
 
 const COLORS = [
@@ -23,31 +25,43 @@ const SIZES = [
   { label: "L", value: 10 },
 ];
 
+export const COMPONENTS: { id: ComponentType; icon: string; label: string }[] = [
+  { id: "server",       icon: "SRV", label: "Server"       },
+  { id: "database",     icon: "DB",  label: "Database"     },
+  { id: "cache",        icon: "⚡",  label: "Cache"        },
+  { id: "queue",        icon: "Q",   label: "Queue"        },
+  { id: "loadbalancer", icon: "LB",  label: "Load Balancer"},
+  { id: "cdn",          icon: "CDN", label: "CDN"          },
+  { id: "client",       icon: "CLI", label: "Client"       },
+  { id: "storage",      icon: "STR", label: "Storage"      },
+  { id: "gateway",      icon: "GW",  label: "API Gateway"  },
+  { id: "region",       icon: "RGN", label: "Region / Zone"},
+];
+
 interface DrawingToolsProps {
-  tool:        Tool;
-  color:       string;
-  strokeWidth: number;
-  canUndo:     boolean;
-  onTool:      (t: Tool) => void;
-  onColor:     (c: string) => void;
-  onStrokeWidth: (s: number) => void;
-  onUndo:      () => void;
-  onClear:     () => void;
+  tool:              Tool;
+  color:             string;
+  strokeWidth:       number;
+  canUndo:           boolean;
+  selectedComponent: ComponentType | null;
+  onTool:            (t: Tool) => void;
+  onColor:           (c: string) => void;
+  onStrokeWidth:     (s: number) => void;
+  onUndo:            () => void;
+  onClear:           () => void;
+  onComponent:       (ct: ComponentType) => void;
 }
 
 export default function DrawingTools({
-  tool, color, strokeWidth, canUndo,
-  onTool, onColor, onStrokeWidth, onUndo, onClear,
+  tool, color, strokeWidth, canUndo, selectedComponent,
+  onTool, onColor, onStrokeWidth, onUndo, onClear, onComponent,
 }: DrawingToolsProps) {
   return (
     <div
       className="flex items-center gap-3 px-4 py-2 rounded-2xl shrink-0 w-max"
-      style={{
-        backgroundColor: "#1a2635",
-        border: "1px solid rgba(255,255,255,0.08)",
-      }}
+      style={{ backgroundColor: "#1a2635", border: "1px solid rgba(255,255,255,0.08)" }}
     >
-      {/* Tools */}
+      {/* Drawing tools */}
       <div className="flex gap-1">
         {TOOLS.map((t) => (
           <button
@@ -57,8 +71,8 @@ export default function DrawingTools({
             className="w-9 h-9 rounded-lg flex items-center justify-center text-base transition-all cursor-pointer font-baloo font-bold"
             style={{
               backgroundColor: tool === t.id ? "rgba(88,166,255,0.2)" : "transparent",
-              border: tool === t.id ? "1px solid rgba(88,166,255,0.5)" : "1px solid transparent",
-              color: tool === t.id ? "#58a6ff" : "#8b949e",
+              border:          tool === t.id ? "1px solid rgba(88,166,255,0.5)" : "1px solid transparent",
+              color:           tool === t.id ? "#58a6ff" : "#8b949e",
             }}
           >
             {t.icon}
@@ -76,10 +90,9 @@ export default function DrawingTools({
             onClick={() => onColor(c)}
             className="rounded-full transition-all cursor-pointer"
             style={{
-              width: 20,
-              height: 20,
+              width: 20, height: 20,
               backgroundColor: c,
-              border: color === c ? "2px solid white" : "2px solid transparent",
+              border:  color === c ? "2px solid white"               : "2px solid transparent",
               outline: color === c ? "2px solid rgba(255,255,255,0.4)" : "none",
               outlineOffset: 1,
             }}
@@ -98,8 +111,8 @@ export default function DrawingTools({
             className="w-9 h-9 rounded-lg flex items-center justify-center font-baloo font-bold text-xs transition-all cursor-pointer"
             style={{
               backgroundColor: strokeWidth === s.value ? "rgba(88,166,255,0.2)" : "transparent",
-              border: strokeWidth === s.value ? "1px solid rgba(88,166,255,0.5)" : "1px solid transparent",
-              color: strokeWidth === s.value ? "#58a6ff" : "#8b949e",
+              border:          strokeWidth === s.value ? "1px solid rgba(88,166,255,0.5)" : "1px solid transparent",
+              color:           strokeWidth === s.value ? "#58a6ff" : "#8b949e",
             }}
           >
             <span style={{ fontSize: s.value * 2 + 4 }}>●</span>
@@ -128,6 +141,34 @@ export default function DrawingTools({
         >
           🗑
         </button>
+      </div>
+
+      <div className="w-px h-6 bg-white/10 shrink-0" />
+
+      {/* System design components */}
+      <div className="flex gap-1 items-center">
+        <span className="font-nunito text-[9px] text-game-muted uppercase tracking-wider shrink-0">
+          Components
+        </span>
+        {COMPONENTS.map((c) => {
+          const active = tool === "component" && selectedComponent === c.id;
+          return (
+            <button
+              key={c.id}
+              title={c.label}
+              onClick={() => onComponent(c.id)}
+              className="h-9 px-2 rounded-lg flex items-center justify-center text-xs transition-all cursor-pointer font-baloo font-bold"
+              style={{
+                backgroundColor: active ? "rgba(63,185,80,0.2)" : "transparent",
+                border:          active ? "1px solid rgba(63,185,80,0.5)" : "1px solid transparent",
+                color:           active ? "#3fb950" : "#8b949e",
+                whiteSpace:      "nowrap",
+              }}
+            >
+              {c.icon}
+            </button>
+          );
+        })}
       </div>
     </div>
   );

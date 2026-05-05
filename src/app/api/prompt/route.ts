@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyPlayerToken } from "@/lib/jwt";
-import { getPromptForRound, getPromptOptionsForRound, buildHints } from "@/lib/prompts";
+import {
+  getPromptForRound,
+  getPromptOptionsForRound,
+  buildHints,
+  getCategoryHint,
+} from "@/lib/prompts";
 import type { Category, Difficulty } from "@/lib/types";
 
 export async function GET(request: NextRequest) {
@@ -11,9 +16,8 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  let payload;
   try {
-    payload = await verifyPlayerToken(token);
+    await verifyPlayerToken(token);
   } catch {
     return NextResponse.json({ error: "Invalid token" }, { status: 401 });
   }
@@ -36,20 +40,25 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Invalid category or difficulty" }, { status: 400 });
   }
 
-  // Return all 3 options for the word-selection screen (drawer only)
   if (wantOptions) {
     const options = getPromptOptionsForRound(category, difficulty, round - 1);
-    return NextResponse.json({ options });
+    return NextResponse.json({
+      options: options.map((p) => ({ system: p.system, scenario: p.scenario })),
+    });
   }
 
-  const safeVariant: 0 | 1 | 2 = ([0, 1, 2] as const).includes(variant as 0|1|2) ? variant : 0;
-  const prompt = getPromptForRound(category, difficulty, round - 1, safeVariant);
-  const [hint0, hint1, hint2] = buildHints(prompt);
+  const safeVariant: 0 | 1 | 2 = ([0, 1, 2] as const).includes(variant as 0 | 1 | 2) ? variant : 0;
+  const p = getPromptForRound(category, difficulty, round - 1, safeVariant);
+  const [, hint1, hint2] = buildHints(p.system);
+  const categoryHint = getCategoryHint(category);
 
   return NextResponse.json({
-    prompt,
-    hints: [hint0, hint1, hint2],
-    wordCount: prompt.split(" ").length,
-    charCount:  prompt.replace(/\s/g, "").length,
+    prompt:              p.system,
+    scenario:            p.scenario,
+    hints:               [categoryHint, hint1, hint2],
+    referenceComponents: p.referenceComponents,
+    designNote:          p.designNote,
+    wordCount:           p.system.split(" ").length,
+    charCount:           p.system.replace(/\s/g, "").length,
   });
 }

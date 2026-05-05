@@ -6,18 +6,20 @@ import type { PlayerTokenPayload } from "@/lib/types";
 interface HintDisplayProps {
   playerInfo: PlayerTokenPayload;
   prompt:     string | null;
+  scenario?:  string | null;
 }
 
-export default function HintDisplay({ playerInfo, prompt }: HintDisplayProps) {
+export default function HintDisplay({ playerInfo, prompt, scenario }: HintDisplayProps) {
   const gameState = useStorage((root) => root.gameState);
   const self      = useSelf();
   const others    = useOthers();
 
-  const isDrawer  = gameState.currentDrawerId === playerInfo.playerId;
-  const hints     = gameState.hints as string[];
-  const latestHint = hints.length > 0 ? hints[hints.length - 1] : null;
+  const isDrawer = gameState.currentDrawerId === playerInfo.playerId;
+  const hints    = gameState.hints as string[];
 
-  // Resolve drawer name for non-drawers
+  const categoryHint = hints.find(h => h.startsWith("CATEGORY:"))?.slice(9) ?? null;
+  const letterHint   = hints.filter(h => !h.startsWith("CATEGORY:")).at(-1) ?? null;
+
   const drawerName = (() => {
     if (isDrawer) return null;
     if (self?.id === gameState.currentDrawerId) return "You";
@@ -27,13 +29,18 @@ export default function HintDisplay({ playerInfo, prompt }: HintDisplayProps) {
 
   if (isDrawer) {
     return (
-      <div className="flex flex-col items-center gap-0.5">
+      <div className="flex flex-col items-center gap-0.5 max-w-md text-center px-2">
         <p className="font-nunito text-[10px] text-game-muted uppercase tracking-widest">
           You are drawing
         </p>
         <p className="font-baloo font-bold text-xl md:text-2xl text-white tracking-wide">
           {prompt ?? "…"}
         </p>
+        {scenario && (
+          <p className="font-nunito text-xs text-game-muted leading-snug line-clamp-2">
+            {scenario}
+          </p>
+        )}
       </div>
     );
   }
@@ -43,11 +50,21 @@ export default function HintDisplay({ playerInfo, prompt }: HintDisplayProps) {
       <p className="font-nunito text-[10px] text-game-muted uppercase tracking-widest">
         {drawerName ? (
           <><span style={{ color: "#58a6ff" }}>{drawerName}</span> is drawing</>
-        ) : "Guess the system!"}
+        ) : "Identify the system!"}
       </p>
+
+      {categoryHint && (
+        <span
+          className="font-nunito text-[10px] font-semibold px-2 py-0.5 rounded-full mb-0.5"
+          style={{ backgroundColor: "rgba(88,166,255,0.12)", color: "#58a6ff", border: "1px solid rgba(88,166,255,0.3)" }}
+        >
+          {categoryHint}
+        </span>
+      )}
+
       <div className="font-baloo font-bold text-xl md:text-2xl text-white tracking-[0.2em] select-none">
-        {latestHint ? (
-          <HintLetters hint={latestHint} />
+        {letterHint ? (
+          <HintLetters hint={letterHint} />
         ) : (
           <WordBlocks prompt={prompt} />
         )}
@@ -76,7 +93,6 @@ function WordBlocks({ prompt }: { prompt: string | null }) {
 }
 
 function HintLetters({ hint }: { hint: string }) {
-  // Hint uses spaces between letters and triple-space between words
   const words = hint.split("   ");
   return (
     <span className="flex items-center gap-3 flex-wrap justify-center">

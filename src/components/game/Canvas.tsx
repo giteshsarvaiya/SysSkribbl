@@ -4,24 +4,26 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react
 import rough from "roughjs";
 import { LiveObject } from "@liveblocks/client";
 import { useStorage, useMutation } from "@/liveblocks.config";
-import type { Stroke } from "@/lib/types";
+import type { Stroke, ComponentType } from "@/lib/types";
 import type { Tool } from "./DrawingTools";
+import { COMPONENTS } from "./DrawingTools";
 
 // Fixed internal resolution — all coordinates stored in this space
 const CANVAS_W = 1200;
 const CANVAS_H = 700;
 
 interface CanvasProps {
-  isDrawer:  boolean;
-  tool:      Tool;
-  color:     string;
-  strokeWidth: number;
-  drawerId:  string;
+  isDrawer:          boolean;
+  tool:              Tool;
+  color:             string;
+  strokeWidth:       number;
+  drawerId:          string;
+  selectedComponent?: ComponentType | null;
 }
 
 interface Point { x: number; y: number }
 
-export default function Canvas({ isDrawer, tool, color, strokeWidth, drawerId }: CanvasProps) {
+export default function Canvas({ isDrawer, tool, color, strokeWidth, drawerId, selectedComponent }: CanvasProps) {
   const canvasRef    = useRef<HTMLCanvasElement>(null);
   const overlayRef   = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -79,7 +81,7 @@ export default function Canvas({ isDrawer, tool, color, strokeWidth, drawerId }:
   // ─── Pointer handlers ──────────────────────────────────────────────────────
 
   const onPointerDown = (e: React.PointerEvent) => {
-    if (!isDrawer) return;
+    if (!isDrawer || tool === "component") return;
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
     drawing.current = true;
     const pt = toCanvas(e.clientX, e.clientY);
@@ -88,7 +90,7 @@ export default function Canvas({ isDrawer, tool, color, strokeWidth, drawerId }:
   };
 
   const onPointerMove = (e: React.PointerEvent) => {
-    if (!isDrawer || !drawing.current) return;
+    if (!isDrawer || !drawing.current || tool === "component") return;
     const pt = toCanvas(e.clientX, e.clientY);
     freePts.current.push(pt);
     renderOverlay(pt);
@@ -159,13 +161,18 @@ export default function Canvas({ isDrawer, tool, color, strokeWidth, drawerId }:
     }
   };
 
-  // Text tool: click-to-place via browser prompt
   const onCanvasClick = (e: React.MouseEvent) => {
-    if (!isDrawer || tool !== "text") return;
-    const pt  = toCanvas(e.clientX, e.clientY);
-    const txt = window.prompt("Enter label:");
-    if (txt?.trim()) {
-      pushStroke({ type: "text", x: pt.x, y: pt.y, label: txt.trim(), color, strokeWidth, drawerId });
+    if (!isDrawer) return;
+    const pt = toCanvas(e.clientX, e.clientY);
+
+    if (tool === "text") {
+      const txt = window.prompt("Enter label:");
+      if (txt?.trim()) {
+        pushStroke({ type: "text", x: pt.x, y: pt.y, label: txt.trim(), color, strokeWidth, drawerId });
+      }
+    } else if (tool === "component" && selectedComponent) {
+      const label = COMPONENTS.find(c => c.id === selectedComponent)?.label ?? selectedComponent;
+      pushStroke({ type: "component", x: pt.x, y: pt.y, componentType: selectedComponent, label, color, strokeWidth, drawerId });
     }
   };
 
@@ -206,7 +213,7 @@ export default function Canvas({ isDrawer, tool, color, strokeWidth, drawerId }:
           top: "50%",
           left: "50%",
           transform: "translate(-50%, -50%)",
-          cursor: isDrawer ? (tool === "text" ? "text" : "crosshair") : "default",
+          cursor: isDrawer ? (tool === "text" ? "text" : tool === "component" ? "copy" : "crosshair") : "default",
           touchAction: "none",
           borderRadius: 12,
         }}
@@ -262,11 +269,122 @@ function renderStroke(ctx: CanvasRenderingContext2D, rc: RC, s: Stroke) {
         ctx.fillText(s.label, s.x, s.y);
       }
       break;
+    case "component":
+      if (s.componentType) {
+        renderComponent(ctx, rc, s.x, s.y, s.componentType, s.label ?? s.componentType, s.color, s.strokeWidth);
+      }
+      break;
   }
 }
 
 function rOpts(color: string, strokeWidth: number) {
   return { stroke: color, strokeWidth, roughness: 1.4, bowing: 0.8, fill: "none" as const };
+}
+
+const COMP_W = 120;
+const COMP_H = 65;
+const REGION_W = 220;
+const REGION_H = 150;
+
+function renderComponent(
+  ctx: CanvasRenderingContext2D,
+  rc: RC,
+  cx: number,
+  cy: number,
+  type: ComponentType,
+  label: string,
+  color: string,
+  sw: number,
+) {
+  const w = type === "region" ? REGION_W : COMP_W;
+  const h = type === "region" ? REGION_H : COMP_H;
+  const x = cx - w / 2;
+  const y = cy - h / 2;
+  const opts = { stroke: color, strokeWidth: sw, roughness: 1.2, bowing: 0.6, fill: "none" as const };
+  const thin = { ...opts, strokeWidth: Math.max(1, sw * 0.6) };
+
+  switch (type) {
+    case "server":
+      rc.rectangle(x, y, w, h, opts);
+      rc.line(x, y + 18, x + w, y + 18, thin);
+      rc.circle(x + 12, y + 9, 8, { ...opts, fill: color, fillStyle: "solid" as const, fillWeight: 1 });
+      break;
+
+    case "database": {
+      const ry = 11;
+      rc.ellipse(cx, y + ry, w, ry * 2, opts);
+      rc.line(x, y + ry, x, y + h - ry, thin);
+      rc.line(x + w, y + ry, x + w, y + h - ry, thin);
+      rc.arc(cx, y + h - ry, w, ry * 2, 0, Math.PI, false, opts);
+      break;
+    }
+
+    case "cache":
+      rc.rectangle(x, y, w, h, opts);
+      rc.line(x + 6, y + h * 0.35, x + w - 6, y + h * 0.35, thin);
+      rc.line(x + 6, y + h * 0.65, x + w - 6, y + h * 0.65, thin);
+      break;
+
+    case "queue": {
+      rc.rectangle(x, y, w, h, opts);
+      const step = w / 4;
+      for (let i = 1; i < 4; i++) {
+        rc.line(x + step * i, y + 4, x + step * i, y + h - 4, thin);
+      }
+      break;
+    }
+
+    case "loadbalancer":
+      rc.polygon([[cx, y], [x + w, cy], [cx, y + h], [x, cy]] as [number, number][], opts);
+      break;
+
+    case "cdn":
+      rc.ellipse(cx, cy + h * 0.1, w * 0.75, h * 0.6, opts);
+      rc.ellipse(cx - w * 0.22, cy - h * 0.1, w * 0.38, h * 0.45, opts);
+      rc.ellipse(cx + w * 0.2, cy - h * 0.12, w * 0.35, h * 0.42, opts);
+      break;
+
+    case "client": {
+      const screenH = h * 0.68;
+      rc.rectangle(x, y, w, screenH, opts);
+      rc.line(x + 4, y + 14, x + w - 4, y + 14, thin);
+      rc.line(cx, y + screenH, cx, y + h - 6, opts);
+      rc.line(cx - 18, y + h - 6, cx + 18, y + h - 6, opts);
+      break;
+    }
+
+    case "storage": {
+      const capR = 14;
+      rc.ellipse(x + capR, cy, capR * 2, h, opts);
+      rc.line(x + capR, y, x + w - capR, y, opts);
+      rc.line(x + capR, y + h, x + w - capR, y + h, opts);
+      rc.arc(x + w - capR, cy, capR * 2, h, -Math.PI / 2, Math.PI / 2, false, opts);
+      break;
+    }
+
+    case "gateway": {
+      const r = Math.min(w, h) / 2 - 2;
+      const pts: [number, number][] = Array.from({ length: 6 }, (_, i) => {
+        const angle = (Math.PI / 3) * i - Math.PI / 6;
+        return [cx + r * Math.cos(angle), cy + r * Math.sin(angle)] as [number, number];
+      });
+      rc.polygon(pts, opts);
+      break;
+    }
+
+    case "region":
+      rc.rectangle(x, y, w, h, { ...opts, strokeLineDash: [10, 5] });
+      break;
+  }
+
+  ctx.save();
+  ctx.font = `bold 12px "Nunito", sans-serif`;
+  ctx.fillStyle = color;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  const labelY = type === "region" ? y + 14 : y + h + 15;
+  ctx.fillText(label, cx, labelY);
+  ctx.restore();
 }
 
 interface Point { x: number; y: number }
