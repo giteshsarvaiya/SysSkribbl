@@ -65,6 +65,7 @@ export default function RoundEnd({
   }
 
   const scores          = gameState.scores as Record<string, number>;
+  const roundScores     = (gameState.roundScores ?? {}) as Record<string, number>;
   const correctGuessers = gameState.correctGuessers as string[];
   const revealedPrompt  = gameState.revealedPrompt ?? "…";
   const currentRound    = gameState.currentRound;
@@ -100,6 +101,7 @@ export default function RoundEnd({
     gs.set("hints",                 []);
     gs.set("revealedPrompt",        "");
     gs.set("roundEndAt",            0);
+    gs.set("roundScores",           {});
 
     const strokes = storage.get("strokes");
     for (let i = strokes.length - 1; i >= 0; i--) strokes.delete(i);
@@ -248,8 +250,15 @@ export default function RoundEnd({
                 >
                   {p.name}
                 </span>
-                <span className="font-baloo font-bold text-game-text text-sm">
-                  {p.score}
+                <span className="flex flex-col items-end">
+                  <span className="font-baloo font-bold text-game-text text-sm leading-none">
+                    {p.score}
+                  </span>
+                  {roundScores[p.id] ? (
+                    <span className="font-nunito font-semibold text-[10px] leading-none" style={{ color: "#3fb950" }}>
+                      +{roundScores[p.id]}
+                    </span>
+                  ) : null}
                 </span>
               </motion.div>
             ))}

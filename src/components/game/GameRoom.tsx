@@ -122,11 +122,17 @@ export default function GameRoom({ roomId: _roomId, playerInfo }: GameRoomProps)
 
       gs.set("correctGuessers", [...correctGuessers, guesserPlayerId]);
 
+      const drawerId = gs.get("currentDrawerId") as string;
+
       const scores: Record<string, number> = { ...(gs.get("scores") as Record<string, number>) };
       scores[guesserPlayerId] = (scores[guesserPlayerId] ?? 0) + points;
-      const drawerId = gs.get("currentDrawerId") as string;
       scores[drawerId] = (scores[drawerId] ?? 0) + DRAWER_BONUS;
       gs.set("scores", scores);
+
+      const roundScores: Record<string, number> = { ...((gs.get("roundScores") as Record<string, number>) ?? {}) };
+      roundScores[guesserPlayerId] = (roundScores[guesserPlayerId] ?? 0) + points;
+      roundScores[drawerId] = (roundScores[drawerId] ?? 0) + DRAWER_BONUS;
+      gs.set("roundScores", roundScores);
     },
     []
   );

@@ -14,7 +14,7 @@ import GameRoom from "@/components/game/GameRoom";
 import RoundEnd from "@/components/game/RoundEnd";
 import GameEnd from "@/components/game/GameEnd";
 import WordSelection from "@/components/game/WordSelection";
-import type { GameSettings, PlayerTokenPayload, GameStateData } from "@/lib/types";
+import type { GameSettings, PlayerTokenPayload, GameStateData, ChatMessage } from "@/lib/types";
 
 // ─── JWT client-side decode (no verification — server already verified) ───────
 
@@ -164,6 +164,7 @@ export default function Room({ roomId }: { roomId: string }) {
           currentDrawerId:       "",
           drawerOrder:           [],
           scores:                {},
+          roundScores:           {},
           timerStartedAt:        0,
           roundDurationMs:       settings.timerSeconds * 1000,
           correctGuessers:       [],
@@ -172,8 +173,9 @@ export default function Room({ roomId }: { roomId: string }) {
           difficulty:            settings.difficulty,
           selectedPromptVariant: 0,
         }),
-        strokes: new LiveList([]),
-        players: new LiveList([]),
+        strokes:      new LiveList([]),
+        players:      new LiveList([]),
+        chatMessages: new LiveList<LiveObject<ChatMessage>>([]),
       }}
     >
       <Suspense fallback={<LoadingScreen message="Loading room..." />}>

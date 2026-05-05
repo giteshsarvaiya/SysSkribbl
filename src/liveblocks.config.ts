@@ -1,6 +1,6 @@
 import { createClient, LiveList, LiveObject } from "@liveblocks/client";
 import { createRoomContext } from "@liveblocks/react";
-import type { Stroke, GameStateData, PlayerData } from "@/lib/types";
+import type { Stroke, GameStateData, PlayerData, ChatMessage } from "@/lib/types";
 
 const client = createClient({
   // Function form so we can attach the player JWT on every auth request
@@ -37,6 +37,7 @@ export type Storage = {
   gameState: LiveObject<GameStateData>;
   strokes: LiveList<LiveObject<Stroke>>;
   players: LiveList<LiveObject<PlayerData>>;
+  chatMessages: LiveList<LiveObject<ChatMessage>>;
 };
 
 export type UserMeta = {
@@ -53,8 +54,7 @@ export type RoomEvent =
   | { type: "HINT_UNLOCK"; hintIndex: number }
   | { type: "ROUND_ENDING_SOON" }
   | { type: "CONFETTI" }
-  | { type: "WRONG_GUESS"; playerName: string }
-  | { type: "GUESS"; playerName: string; playerColor: string; guess: string }
+  | { type: "WRONG_GUESS" }
   | { type: "ROUND_END"; scores: Record<string, number>; correctGuessers: string[] }
   | { type: "GAME_END" };
 

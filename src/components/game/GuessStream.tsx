@@ -1,43 +1,24 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { useBroadcastEvent, useEventListener } from "@/liveblocks.config";
-import type { PlayerTokenPayload } from "@/lib/types";
+import { LiveObject } from "@liveblocks/client";
+import {
+  useBroadcastEvent,
+  useEventListener,
+  useStorage,
+  useMutation,
+} from "@/liveblocks.config";
+import type { PlayerTokenPayload, ChatMessage } from "@/lib/types";
 import { playCorrect, playWrong, playHint } from "@/lib/sounds";
 
-interface Message {
-  id:          string;
-  playerName:  string;
-  playerColor: string;
-  text:        string;
-  type:        "guess" | "correct" | "system";
-}
+const MAX_MESSAGES = 50;
 
 interface GuessStreamProps {
-  playerInfo:    PlayerTokenPayload;
-  isDrawer:      boolean;
-  prompt:        string | null;
-  onCorrect:     (points: number) => void;
-}
-
-function replaceLastGuessWithCorrect(
-  prev: Message[],
-  playerName: string,
-  correctMsg: Message
-): Message[] {
-  // Find the most recent "guess" message from this player and remove it
-  let removeIdx = -1;
-  for (let i = prev.length - 1; i >= 0; i--) {
-    if (prev[i].type === "guess" && prev[i].playerName === playerName) {
-      removeIdx = i;
-      break;
-    }
-  }
-  const updated = removeIdx !== -1
-    ? [...prev.slice(0, removeIdx), ...prev.slice(removeIdx + 1)]
-    : [...prev];
-  return [...updated.slice(-99), correctMsg];
+  playerInfo: PlayerTokenPayload;
+  isDrawer:   boolean;
+  prompt:     string | null;
+  onCorrect:  (points: number) => void;
 }
 
 export default function GuessStream({
@@ -46,64 +27,41 @@ export default function GuessStream({
   prompt,
   onCorrect,
 }: GuessStreamProps) {
-  const [messages, setMessages]     = useState<Message[]>([]);
-  const [input, setInput]           = useState("");
-  const [sending, setSending]       = useState(false);
-  const lastSentAt                  = useRef(0);
-  const bottomRef                   = useRef<HTMLDivElement>(null);
-  const broadcast                   = useBroadcastEvent();
+  const [input,   setInput]   = useState("");
+  const [sending, setSending] = useState(false);
+  const lastSentAt            = useRef(0);
+  const bottomRef             = useRef<HTMLDivElement>(null);
+  const broadcast             = useBroadcastEvent();
+
+  const rawMessages = useStorage((root) => root.chatMessages);
+  const messages: readonly ChatMessage[] = rawMessages ?? [];
+
+  const addChatMessage = useMutation(({ storage }, msg: Omit<ChatMessage, "id">) => {
+    const list = storage.get("chatMessages");
+    while (list.length >= MAX_MESSAGES) list.delete(0);
+    list.push(new LiveObject({ ...msg, id: crypto.randomUUID() }));
+  }, []);
 
   // Auto-scroll to bottom on new messages
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  // We can't use useEffect with messages dependency here since rawMessages is from storage
+  // Instead we rely on a key trick — use a ref inside the render
+  const prevLenRef = useRef(0);
+  if (messages.length !== prevLenRef.current) {
+    prevLenRef.current = messages.length;
+    // Schedule scroll after paint
+    setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 0);
+  }
 
-  // Listen to incoming broadcasts (fires for everyone EXCEPT the sender)
+  // Listen to broadcasts — sounds only; chat content comes through storage
   useEventListener(({ event }) => {
-    if (event.type === "GUESS") {
-      setMessages((prev) => [
-        ...prev.slice(-99),
-        {
-          id:          crypto.randomUUID(),
-          playerName:  event.playerName,
-          playerColor: event.playerColor,
-          text:        event.guess,
-          type:        "guess",
-        },
-      ]);
-    }
-
     if (event.type === "CORRECT_GUESS_ANIMATION") {
       playCorrect();
-      const correctMsg: Message = {
-        id:          crypto.randomUUID(),
-        playerName:  event.playerName,
-        playerColor: "#3fb950",
-        text:        `${event.playerName} guessed it! (+${event.points} pts)`,
-        type:        "correct",
-      };
-      setMessages((prev) => replaceLastGuessWithCorrect(prev, event.playerName, correctMsg));
     }
-
     if (event.type === "HINT_UNLOCK") {
       playHint();
     }
-
     if (event.type === "WRONG_GUESS") {
       playWrong();
-    }
-
-    if (event.type === "ROUND_ENDING_SOON") {
-      setMessages((prev) => [
-        ...prev.slice(-99),
-        {
-          id:          crypto.randomUUID(),
-          playerName:  "System",
-          playerColor: "#e3b341",
-          text:        "⏰ Time is almost up!",
-          type:        "system",
-        },
-      ]);
     }
   });
 
@@ -118,33 +76,13 @@ export default function GuessStream({
     setInput("");
     setSending(true);
 
-    // Add own message immediately (broadcasts don't echo back to sender)
-    const localId = crypto.randomUUID();
-    setMessages((prev) => [
-      ...prev.slice(-99),
-      {
-        id:          localId,
-        playerName:  playerInfo.playerName,
-        playerColor: playerInfo.color,
-        text,
-        type:        "guess",
-      },
-    ]);
-
-    broadcast({
-      type:        "GUESS",
-      playerName:  playerInfo.playerName,
-      playerColor: playerInfo.color,
-      guess:       text,
-    });
-
     try {
       const token = localStorage.getItem("playerToken");
       const res = await fetch("/api/guess", {
         method: "POST",
         headers: {
-          "Content-Type":  "application/json",
-          Authorization:   `Bearer ${token}`,
+          "Content-Type": "application/json",
+          Authorization:  `Bearer ${token}`,
         },
         body: JSON.stringify({ guess: text }),
       });
@@ -152,17 +90,25 @@ export default function GuessStream({
       if (res.ok) {
         const { correct, points } = await res.json();
         if (correct) {
-          // Replace our local guess message with "guessed it" (others do this via CORRECT_GUESS_ANIMATION)
           playCorrect();
-          const correctMsg: Message = {
-            id:          crypto.randomUUID(),
+          addChatMessage({
             playerName:  playerInfo.playerName,
             playerColor: "#3fb950",
-            text:        `You guessed it! (+${points} pts)`,
+            text:        `${playerInfo.playerName} guessed it! (+${points} pts)`,
             type:        "correct",
-          };
-          setMessages((prev) => replaceLastGuessWithCorrect(prev, playerInfo.playerName, correctMsg));
+            timestamp:   Date.now(),
+          });
           onCorrect(points);
+        } else {
+          playWrong();
+          addChatMessage({
+            playerName:  playerInfo.playerName,
+            playerColor: playerInfo.color,
+            text,
+            type:        "guess",
+            timestamp:   Date.now(),
+          });
+          broadcast({ type: "WRONG_GUESS" });
         }
       }
     } catch {
@@ -177,7 +123,7 @@ export default function GuessStream({
       {/* Message list */}
       <div className="flex-1 overflow-y-auto px-3 py-2 space-y-1">
         <AnimatePresence initial={false}>
-          {messages.map((msg) => (
+          {[...messages].map((msg) => (
             <motion.div
               key={msg.id}
               initial={{ opacity: 0, x: -8 }}
@@ -208,7 +154,7 @@ export default function GuessStream({
                       fontWeight: msg.type === "correct" ? 700 : 400,
                     }}
                   >
-                    {msg.type === "correct" ? msg.text : msg.text}
+                    {msg.text}
                   </span>
                 </>
               )}

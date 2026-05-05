@@ -43,6 +43,15 @@ export type PlayerData = {
   joinedAt: number;
 };
 
+export type ChatMessage = {
+  id: string;
+  playerName: string;
+  playerColor: string;
+  text: string;
+  type: "guess" | "correct" | "system";
+  timestamp: number;
+};
+
 export type GameStateData = {
   phase: Phase;
   currentRound: number;
@@ -50,6 +59,7 @@ export type GameStateData = {
   currentDrawerId: string;
   drawerOrder: string[]; // playerIds in rotation order
   scores: Record<string, number>;
+  roundScores?: Record<string, number>; // points earned this round only
   timerStartedAt: number; // server-issued ms timestamp
   roundDurationMs: number;
   correctGuessers: string[]; // playerIds who guessed correctly this round
