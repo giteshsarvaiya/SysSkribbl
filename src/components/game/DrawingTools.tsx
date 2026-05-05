@@ -26,16 +26,21 @@ const SIZES = [
 ];
 
 export const COMPONENTS: { id: ComponentType; icon: string; label: string }[] = [
-  { id: "server",       icon: "SRV", label: "Server"       },
-  { id: "database",     icon: "DB",  label: "Database"     },
+  { id: "client",       icon: "💻",  label: "Client"       },
+  { id: "mobile",       icon: "📱",  label: "Mobile"       },
+  { id: "server",       icon: "🖥️",  label: "Server"       },
+  { id: "database",     icon: "🗄️",  label: "Database"     },
   { id: "cache",        icon: "⚡",  label: "Cache"        },
-  { id: "queue",        icon: "Q",   label: "Queue"        },
-  { id: "loadbalancer", icon: "LB",  label: "Load Balancer"},
-  { id: "cdn",          icon: "CDN", label: "CDN"          },
-  { id: "client",       icon: "CLI", label: "Client"       },
-  { id: "storage",      icon: "STR", label: "Storage"      },
-  { id: "gateway",      icon: "GW",  label: "API Gateway"  },
-  { id: "region",       icon: "RGN", label: "Region / Zone"},
+  { id: "queue",        icon: "📋",  label: "Queue"        },
+  { id: "storage",      icon: "💾",  label: "Storage"      },
+  { id: "search",       icon: "🔍",  label: "Search"       },
+  { id: "loadbalancer", icon: "⚖️",  label: "Load Balancer"},
+  { id: "gateway",      icon: "🔀",  label: "API Gateway"  },
+  { id: "cdn",          icon: "🌐",  label: "CDN"          },
+  { id: "firewall",     icon: "🛡️",  label: "Firewall"     },
+  { id: "worker",       icon: "⚙️",  label: "Worker"       },
+  { id: "external",     icon: "🔌",  label: "External API" },
+  { id: "region",       icon: "🗺️",  label: "Region / Zone"},
 ];
 
 interface DrawingToolsProps {
@@ -56,99 +61,98 @@ export default function DrawingTools({
   tool, color, strokeWidth, canUndo, selectedComponent,
   onTool, onColor, onStrokeWidth, onUndo, onClear, onComponent,
 }: DrawingToolsProps) {
+  const cardStyle = {
+    backgroundColor: "#1a2635",
+    border: "1px solid rgba(255,255,255,0.08)",
+  };
+
   return (
-    <div
-      className="flex items-center gap-3 px-4 py-2 rounded-2xl shrink-0 w-max"
-      style={{ backgroundColor: "#1a2635", border: "1px solid rgba(255,255,255,0.08)" }}
-    >
-      {/* Drawing tools */}
-      <div className="flex gap-1">
-        {TOOLS.map((t) => (
+    <div className="flex flex-col gap-2 w-max">
+      {/* Row 1 — drawing tools, colors, sizes, undo */}
+      <div className="flex items-center gap-3 px-4 py-2 rounded-2xl" style={cardStyle}>
+        <div className="flex gap-1">
+          {TOOLS.map((t) => (
+            <button
+              key={t.id}
+              title={t.label}
+              onClick={() => onTool(t.id)}
+              className="w-9 h-9 rounded-lg flex items-center justify-center text-base transition-all cursor-pointer font-baloo font-bold"
+              style={{
+                backgroundColor: tool === t.id ? "rgba(88,166,255,0.2)" : "transparent",
+                border:          tool === t.id ? "1px solid rgba(88,166,255,0.5)" : "1px solid transparent",
+                color:           tool === t.id ? "#58a6ff" : "#8b949e",
+              }}
+            >
+              {t.icon}
+            </button>
+          ))}
+        </div>
+
+        <div className="w-px h-6 bg-white/10 shrink-0" />
+
+        <div className="flex gap-1 shrink-0">
+          {COLORS.map((c) => (
+            <button
+              key={c}
+              onClick={() => onColor(c)}
+              className="rounded-full transition-all cursor-pointer"
+              style={{
+                width: 20, height: 20,
+                backgroundColor: c,
+                border:  color === c ? "2px solid white" : "2px solid transparent",
+                outline: color === c ? "2px solid rgba(255,255,255,0.4)" : "none",
+                outlineOffset: 1,
+              }}
+            />
+          ))}
+        </div>
+
+        <div className="w-px h-6 bg-white/10 shrink-0" />
+
+        <div className="flex gap-1">
+          {SIZES.map((s) => (
+            <button
+              key={s.value}
+              onClick={() => onStrokeWidth(s.value)}
+              className="w-9 h-9 rounded-lg flex items-center justify-center font-baloo font-bold text-xs transition-all cursor-pointer"
+              style={{
+                backgroundColor: strokeWidth === s.value ? "rgba(88,166,255,0.2)" : "transparent",
+                border:          strokeWidth === s.value ? "1px solid rgba(88,166,255,0.5)" : "1px solid transparent",
+                color:           strokeWidth === s.value ? "#58a6ff" : "#8b949e",
+              }}
+            >
+              <span style={{ fontSize: s.value * 2 + 4 }}>●</span>
+            </button>
+          ))}
+        </div>
+
+        <div className="w-px h-6 bg-white/10 shrink-0" />
+
+        <div className="flex gap-1">
           <button
-            key={t.id}
-            title={t.label}
-            onClick={() => onTool(t.id)}
-            className="w-9 h-9 rounded-lg flex items-center justify-center text-base transition-all cursor-pointer font-baloo font-bold"
-            style={{
-              backgroundColor: tool === t.id ? "rgba(88,166,255,0.2)" : "transparent",
-              border:          tool === t.id ? "1px solid rgba(88,166,255,0.5)" : "1px solid transparent",
-              color:           tool === t.id ? "#58a6ff" : "#8b949e",
-            }}
+            onClick={onUndo}
+            disabled={!canUndo}
+            title="Undo"
+            className="w-9 h-9 rounded-lg flex items-center justify-center text-base transition-all cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+            style={{ color: "#8b949e" }}
           >
-            {t.icon}
+            ↩
           </button>
-        ))}
-      </div>
-
-      <div className="w-px h-6 bg-white/10 shrink-0" />
-
-      {/* Colors */}
-      <div className="flex gap-1 shrink-0">
-        {COLORS.map((c) => (
           <button
-            key={c}
-            onClick={() => onColor(c)}
-            className="rounded-full transition-all cursor-pointer"
-            style={{
-              width: 20, height: 20,
-              backgroundColor: c,
-              border:  color === c ? "2px solid white"               : "2px solid transparent",
-              outline: color === c ? "2px solid rgba(255,255,255,0.4)" : "none",
-              outlineOffset: 1,
-            }}
-          />
-        ))}
-      </div>
-
-      <div className="w-px h-6 bg-white/10 shrink-0" />
-
-      {/* Sizes */}
-      <div className="flex gap-1">
-        {SIZES.map((s) => (
-          <button
-            key={s.value}
-            onClick={() => onStrokeWidth(s.value)}
-            className="w-9 h-9 rounded-lg flex items-center justify-center font-baloo font-bold text-xs transition-all cursor-pointer"
-            style={{
-              backgroundColor: strokeWidth === s.value ? "rgba(88,166,255,0.2)" : "transparent",
-              border:          strokeWidth === s.value ? "1px solid rgba(88,166,255,0.5)" : "1px solid transparent",
-              color:           strokeWidth === s.value ? "#58a6ff" : "#8b949e",
-            }}
+            onClick={onClear}
+            title="Clear canvas"
+            className="w-9 h-9 rounded-lg flex items-center justify-center text-base transition-all cursor-pointer"
+            style={{ color: "#ff7b72" }}
           >
-            <span style={{ fontSize: s.value * 2 + 4 }}>●</span>
+            🗑
           </button>
-        ))}
+        </div>
       </div>
 
-      <div className="w-px h-6 bg-white/10 shrink-0" />
-
-      {/* Undo / Clear */}
-      <div className="flex gap-1">
-        <button
-          onClick={onUndo}
-          disabled={!canUndo}
-          title="Undo"
-          className="w-9 h-9 rounded-lg flex items-center justify-center text-base transition-all cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
-          style={{ color: "#8b949e" }}
-        >
-          ↩
-        </button>
-        <button
-          onClick={onClear}
-          title="Clear canvas"
-          className="w-9 h-9 rounded-lg flex items-center justify-center text-base transition-all cursor-pointer"
-          style={{ color: "#ff7b72" }}
-        >
-          🗑
-        </button>
-      </div>
-
-      <div className="w-px h-6 bg-white/10 shrink-0" />
-
-      {/* System design components */}
-      <div className="flex gap-1 items-center">
-        <span className="font-nunito text-[9px] text-game-muted uppercase tracking-wider shrink-0">
-          Components
+      {/* Row 2 — system design component stamps */}
+      <div className="flex items-center gap-1 px-3 py-2 rounded-2xl" style={cardStyle}>
+        <span className="font-nunito text-[9px] text-game-muted uppercase tracking-wider shrink-0 mr-2 select-none">
+          Shapes
         </span>
         {COMPONENTS.map((c) => {
           const active = tool === "component" && selectedComponent === c.id;
@@ -157,15 +161,27 @@ export default function DrawingTools({
               key={c.id}
               title={c.label}
               onClick={() => onComponent(c.id)}
-              className="h-9 px-2 rounded-lg flex items-center justify-center text-xs transition-all cursor-pointer font-baloo font-bold"
+              className="flex flex-col items-center justify-center gap-0.5 rounded-xl transition-all cursor-pointer"
               style={{
-                backgroundColor: active ? "rgba(63,185,80,0.2)" : "transparent",
-                border:          active ? "1px solid rgba(63,185,80,0.5)" : "1px solid transparent",
-                color:           active ? "#3fb950" : "#8b949e",
-                whiteSpace:      "nowrap",
+                width: 46,
+                height: 42,
+                backgroundColor: active ? "rgba(63,185,80,0.15)" : "rgba(255,255,255,0.03)",
+                border:          active ? "1px solid rgba(63,185,80,0.5)" : "1px solid rgba(255,255,255,0.06)",
               }}
             >
-              {c.icon}
+              <span className="text-base leading-none">{c.icon}</span>
+              <span
+                className="font-nunito text-[8px] leading-none text-center px-0.5"
+                style={{
+                  color: active ? "#3fb950" : "#8b949e",
+                  whiteSpace: "nowrap",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  maxWidth: 42,
+                }}
+              >
+                {c.label}
+              </span>
             </button>
           );
         })}

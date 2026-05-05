@@ -45,7 +45,7 @@ export default function PlayerList({
   return (
     <div
       className="flex flex-col gap-1 overflow-y-auto"
-      style={{ maxHeight: "calc(100vh - 120px)" }}
+      style={{ maxHeight: "calc(100dvh - 120px)" }}
     >
       {sorted.map((p, i) => {
         const score    = scores[p.id] ?? 0;
@@ -55,7 +55,7 @@ export default function PlayerList({
         return (
           <div
             key={p.id}
-            className="flex items-center gap-2.5 px-3 py-2 rounded-xl transition-colors"
+            className="flex items-center gap-1.5 px-2 py-1.5 rounded-xl transition-colors"
             style={{
               backgroundColor: isDrawer
                 ? "rgba(88,166,255,0.12)"
@@ -67,11 +67,6 @@ export default function PlayerList({
                 : "1px solid transparent",
             }}
           >
-            {/* Rank */}
-            <span className="font-baloo font-bold text-xs text-game-muted w-4 shrink-0">
-              {i + 1}
-            </span>
-
             <Avatar
               name={p.name}
               color={p.color}
@@ -85,27 +80,23 @@ export default function PlayerList({
 
             <div className="flex-1 min-w-0">
               <p
-                className="font-nunito font-semibold text-xs truncate"
+                className="font-nunito font-semibold text-xs truncate leading-tight"
                 style={{ color: p.color }}
               >
                 {p.name}
-                {p.isSelf && (
-                  <span className="text-game-muted ml-1 font-normal">(you)</span>
-                )}
               </p>
               {isCorrect && (
-                <p className="font-nunito text-[9px] text-game-green leading-none">
-                  ✓ guessed!
-                </p>
+                <p className="font-nunito text-[8px] text-game-green leading-none">✓ got it</p>
               )}
               {isDrawer && (
-                <p className="font-nunito text-[9px] text-game-blue leading-none">
-                  ✏️ drawing
-                </p>
+                <p className="font-nunito text-[8px] text-game-blue leading-none">drawing</p>
+              )}
+              {p.isSelf && !isCorrect && !isDrawer && (
+                <p className="font-nunito text-[8px] text-game-muted leading-none">you</p>
               )}
             </div>
 
-            <span className="font-baloo font-bold text-sm text-game-text shrink-0">
+            <span className="font-baloo font-bold text-xs text-game-text shrink-0">
               {score}
             </span>
           </div>

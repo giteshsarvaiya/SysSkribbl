@@ -338,7 +338,7 @@ export default function GameRoom({ roomId: _roomId, playerInfo }: GameRoomProps)
       >
         {/* Players column */}
         <div
-          className="w-32 shrink-0 overflow-y-auto p-2"
+          className="w-40 shrink-0 overflow-y-auto p-2"
           style={{ borderRight: "1px solid rgba(255,255,255,0.07)" }}
         >
           <p className="font-nunito text-[9px] text-game-muted uppercase tracking-widest mb-1.5 px-1">

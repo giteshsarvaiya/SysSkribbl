@@ -281,10 +281,23 @@ function rOpts(color: string, strokeWidth: number) {
   return { stroke: color, strokeWidth, roughness: 1.4, bowing: 0.8, fill: "none" as const };
 }
 
-const COMP_W = 120;
-const COMP_H = 65;
-const REGION_W = 220;
-const REGION_H = 150;
+const COMP_DIMS: Record<ComponentType, { w: number; h: number }> = {
+  server:       { w: 120, h: 65  },
+  database:     { w: 100, h: 80  },
+  cache:        { w: 120, h: 65  },
+  queue:        { w: 130, h: 60  },
+  loadbalancer: { w: 90,  h: 80  },
+  cdn:          { w: 120, h: 70  },
+  client:       { w: 110, h: 75  },
+  storage:      { w: 130, h: 65  },
+  gateway:      { w: 90,  h: 80  },
+  region:       { w: 220, h: 150 },
+  firewall:     { w: 120, h: 65  },
+  mobile:       { w: 55,  h: 90  },
+  worker:       { w: 78,  h: 78  },
+  external:     { w: 120, h: 65  },
+  search:       { w: 80,  h: 80  },
+};
 
 function renderComponent(
   ctx: CanvasRenderingContext2D,
@@ -296,8 +309,7 @@ function renderComponent(
   color: string,
   sw: number,
 ) {
-  const w = type === "region" ? REGION_W : COMP_W;
-  const h = type === "region" ? REGION_H : COMP_H;
+  const { w, h } = COMP_DIMS[type];
   const x = cx - w / 2;
   const y = cy - h / 2;
   const opts = { stroke: color, strokeWidth: sw, roughness: 1.2, bowing: 0.6, fill: "none" as const };
@@ -375,6 +387,64 @@ function renderComponent(
     case "region":
       rc.rectangle(x, y, w, h, { ...opts, strokeLineDash: [10, 5] });
       break;
+
+    case "firewall":
+      rc.rectangle(x, y, w, h, opts);
+      rc.line(x + 6, y + h * 0.3,  x + w - 6, y + h * 0.3,  thin);
+      rc.line(x + 6, y + h * 0.55, x + w - 6, y + h * 0.55, thin);
+      rc.line(x + 6, y + h * 0.78, x + w - 6, y + h * 0.78, thin);
+      break;
+
+    case "mobile":
+      rc.rectangle(x, y, w, h, opts);
+      rc.line(x + 8, y + 10, x + w - 8, y + 10, thin);
+      rc.circle(cx, y + h - 12, 8, thin);
+      break;
+
+    case "worker": {
+      const r2 = w / 2 - 4;
+      rc.circle(cx, cy, r2 * 2, opts);
+      rc.circle(cx, cy, r2 * 0.9, thin);
+      const toothLen = 8;
+      const toothW  = 5;
+      for (let i = 0; i < 8; i++) {
+        const angle = (Math.PI / 4) * i;
+        const innerX = cx + (r2 - 1) * Math.cos(angle);
+        const innerY = cy + (r2 - 1) * Math.sin(angle);
+        const outerX = cx + (r2 + toothLen) * Math.cos(angle);
+        const outerY = cy + (r2 + toothLen) * Math.sin(angle);
+        const perpX = Math.sin(angle) * toothW / 2;
+        const perpY = -Math.cos(angle) * toothW / 2;
+        rc.polygon([
+          [innerX - perpX, innerY - perpY],
+          [outerX - perpX, outerY - perpY],
+          [outerX + perpX, outerY + perpY],
+          [innerX + perpX, innerY + perpY],
+        ] as [number, number][], { ...thin, roughness: 0.8 });
+      }
+      break;
+    }
+
+    case "external":
+      rc.rectangle(x, y, w, h, { ...opts, strokeLineDash: [4, 4] });
+      rc.rectangle(x + 6, y + 6, w - 12, h - 12, { ...thin, roughness: 0.6, strokeLineDash: [] });
+      break;
+
+    case "search": {
+      const lensR = w * 0.36;
+      const lensX = cx - w * 0.1;
+      const lensY = cy - h * 0.1;
+      rc.circle(lensX, lensY, lensR * 2, opts);
+      const handleDist = lensR * 0.7;
+      rc.line(
+        lensX + handleDist * Math.cos(Math.PI * 0.75),
+        lensY + handleDist * Math.sin(Math.PI * 0.75),
+        lensX + (lensR + 18) * Math.cos(Math.PI * 0.75),
+        lensY + (lensR + 18) * Math.sin(Math.PI * 0.75),
+        { ...opts, strokeWidth: sw * 1.5 }
+      );
+      break;
+    }
   }
 
   ctx.save();

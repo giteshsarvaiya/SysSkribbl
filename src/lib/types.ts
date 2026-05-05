@@ -7,7 +7,8 @@ export type StrokeType = "rect" | "circle" | "arrow" | "line" | "freehand" | "te
 export type ComponentType =
   | "server" | "database" | "cache" | "queue"
   | "loadbalancer" | "cdn" | "client" | "storage"
-  | "gateway" | "region";
+  | "gateway" | "region"
+  | "firewall" | "mobile" | "worker" | "external" | "search";
 
 export type GameSettings = {
   category: Category;
